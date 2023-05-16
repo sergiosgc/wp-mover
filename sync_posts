@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+import requests
+import json
+import base64
+from pprint import pprint
+import os.path
+import re
+import sys
+import mimetypes
+import locale
+
+with open("credentials.json", "r") as f:
+    credentials = json.loads(f.read())
+    left = credentials['left']
+    right = credentials['right']
+    del credentials
+
+def wp_get(wp, url):
+    headers = {
+        'Authorization': 'Basic ' + base64.b64encode((wp['username'] + ':' + wp['password']).encode()).decode('utf-8'),
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'curl/7.86.0'
+    }
+    return requests.get( wp['url'] + "/wp-json/wp/v2" + url, headers=headers).json()
+
+def wp_post_json(wp, url, json, headers={}):
+    headers = dict(headers, **{
+        'Authorization': 'Basic ' + base64.b64encode((wp['username'] + ':' + wp['password']).encode()).decode('utf-8'),
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'curl/7.86.0'
+    })
+    return requests.post( wp['url'] + "/wp-json/wp/v2" + url, headers=headers, json=json).json()
+
+def wp_post_file(wp, url, file, filename):
+    headers = {
+        'Authorization': 'Basic ' + base64.b64encode((wp['username'] + ':' + wp['password']).encode()).decode('utf-8'),
+        'Accept': 'application/json',
+        'User-Agent': 'curl/7.86.0',
+        'Content-disposition': ('attachment; filename="%s"' % (filename,)).encode('utf-8'),
+    }
+    return requests.post( wp['url'] + "/wp-json/wp/v2" + url, headers=headers, files={"file": (filename, file, mimetypes.guess_type(filename)[0])}).json()
+
+def wp_get_paged(wp, url):
+    results_returned = True
+    result = []
+    page = 1
+    while results_returned:
+        loop_result = wp_get(wp, url + ("?page=%s" % (page,)))
+        results_returned = len(loop_result) > 0 and ('code' not in loop_result or loop_result['code'] != "rest_post_invalid_page_number")
+        if results_returned:
+            result += loop_result 
+        page += 1
+    return result
+
+def prepare_item_for_upload(item, left_wp, right_wp):
+    item['old_id'] = item['id']
+    del item['id']
+    if 'post' in item: del item['post']
+    if 'author' in item:
+        item['author'] = left_to_right_user_map[item['author']] if item['author'] in left_to_right_user_map else next(iter(left_to_right_user_map.values()))
+    if item['status'] == 'inherit':
+        item['status'] = 'publish'
+    for key in [ 'title', 'content', 'excerpt' ]:
+        if not isinstance(item[key], str) and 'rendered' in item[key]: item[key] = item[key]['rendered']
+    for key in [ 'header_stamp', 'featured_media', 'pdf_doc' ]:
+        if key in item and str(item[key]) != "" and str(item[key]) != "0" and str(item[key]) in left_to_right_media_map:
+            item[key] = str(left_to_right_media_map[str(item[key])]) if str(item[key]) in left_to_right_media_map else str(item[key])
+    if 'categories' in item:
+        item['categories'] = [ left_to_right_category_map[cat] if cat in left_to_right_category_map else cat for cat in item['categories'] ]
+    if 'featured_media' in item:
+        print("Featured media for {} is {}".format(item['old_id'], item['featured_media']))
+    text = requests.get(item['link'], headers={ 'User-Agent': 'curl/7.86.0' }).text
+    if text.find('class="et_pb_post'):
+        article = text[text.find('<article'):]
+        article = article[article.find('>')+1:]
+        article = article[::-1]
+        article = article[article.find('elcitra/<'):]
+        article = article[article.find('>'):]
+        article = article[::-1]
+        css = text[text.find("<style id='divi-style-inline-inline-css'"):]
+        css = css[css.find(">")+1:]
+        css = css[:css.find('</style')]
+        item['content'] = '{}<style type="text/css" scoped>{}</style>'.format(article, css)
+    return item
+
+if len(sys.argv) < 2:
+    sys.stderr.write("Usage: sync_posts <post_type>")
+    sys.exit(1)
+post_type = sys.argv[1]
+
+left_to_right_user_map = {
+    727: 5,
+    1421: 6,
+    740: 7,
+    1455: 8,
+    1459: 9,
+    1396: 10,
+    835: 11
+}
+left_to_right_category_map = {
+    12: 15,
+    9: 14,
+    8: 13
+}
+
+with open("left_to_right_media_map.json", "r") as cache_file:
+    left_to_right_media_map = json.loads(cache_file.read())
+
+left_posts = wp_get_paged(left, "/%s" % (post_type,))
+right_posts = wp_get_paged(right, "/%s" % (post_type,))
+for left_item in left_posts:
+    found = False
+    for right_item in right_posts:
+        if right_item['toolset-meta']['campos-de-migracao']['old_id']['raw'] != "" and int(right_item['toolset-meta']['campos-de-migracao']['old_id']['raw']) == left_item['id']:
+            found = True
+    if not found:
+        to_upload = prepare_item_for_upload(left_item, left, right)
+        result = wp_post_json(right, "/%s" % (post_type,), to_upload)
+        if 'id' not in result:
+            pprint(result)
+            sys.exit(0)
+        else:
+            print("{} -> {}".format(to_upload['old_id'], result['id']))

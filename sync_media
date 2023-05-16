@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+import requests
+import json
+import base64
+from pprint import pprint
+import os.path
+import re
+import sys
+import mimetypes
+import locale
+
+with open("credentials.json", "r") as f:
+    credentials = json.loads(f.read())
+    left = credentials['left']
+    right = credentials['right']
+    del credentials
+
+
+def wp_get(wp, url):
+    headers = {
+        'Authorization': 'Basic ' + base64.b64encode((wp['username'] + ':' + wp['password']).encode()).decode('utf-8'),
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'curl/7.86.0'
+    }
+    return requests.get( wp['url'] + "/wp-json/wp/v2" + url, headers=headers).json()
+
+def wp_post_json(wp, url, json, headers={}):
+    headers = dict(headers, **{
+        'Authorization': 'Basic ' + base64.b64encode((wp['username'] + ':' + wp['password']).encode()).decode('utf-8'),
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'curl/7.86.0'
+    })
+    return requests.post( wp['url'] + "/wp-json/wp/v2" + url, headers=headers, json=json).json()
+
+def wp_post_file(wp, url, file, filename):
+    headers = {
+        'Authorization': 'Basic ' + base64.b64encode((wp['username'] + ':' + wp['password']).encode()).decode('utf-8'),
+        'Accept': 'application/json',
+        'User-Agent': 'curl/7.86.0',
+        'Content-disposition': ('attachment; filename="%s"' % (filename,)).encode('utf-8'),
+    }
+    return requests.post( wp['url'] + "/wp-json/wp/v2" + url, headers=headers, files={"file": (filename, file, mimetypes.guess_type(filename)[0])}).json()
+
+def wp_get_paged(wp, url):
+    results_returned = True
+    result = []
+    page = 1
+    while results_returned:
+        loop_result = wp_get(wp, url + ("?page=%s" % (page,)))
+        results_returned = len(loop_result) > 0 and ('code' not in loop_result or loop_result['code'] != "rest_post_invalid_page_number")
+        if results_returned:
+            result += loop_result 
+        page += 1
+    return result
+
+def prepare_item_for_upload(item, left_wp, right_wp):
+    item['old_id'] = item['id']
+    del item['id']
+    del item['post']
+    if item['author'] in left_to_right_user_map:
+        item['author'] = left_to_right_user_map[item['author']]
+    if item['status'] == 'inherit':
+        item['status'] = 'publish'
+    return item
+
+def order_removal_stale_file(url):
+    url = url.replace(left['url'], right['url'], 1)
+    if 'blogs.dir' in url:
+        url = url.replace('wp-content/blogs.dir/361/files/', 'wp-content/uploads/')
+    img = requests.get(url, headers = { 'User-Agent': 'curl/7.86.0' })
+    if img.status_code != 200:
+        return
+    for right_item in right_media:
+        if right_item['source_url'] == url:
+            return
+    print("rm -f '%s'" % (url[url.find('wp-content'):],))
+
+def find_by_slug(slug):
+    for right_item in right_media:
+        if right_item['slug'] == slug:
+            return right_item
+    return None
+
+left_to_right_user_map = {
+    727: 5,
+    1421: 6,
+    740: 7,
+    1455: 8,
+    1459: 9,
+    1396: 10,
+    835: 11
+}
+
+if os.path.isfile("left_media.json"):
+    with open("left_media.json", "r") as cache_file:
+        left_media = json.loads(cache_file.read())
+else:
+    left_media = wp_get_paged(left, "/media")
+    with open("left_media.json", "w") as cache_file:
+        cache_file.write(json.dumps(left_media))
+
+if False and os.path.isfile("right_media.json"):
+    with open("right_media.json", "r") as cache_file:
+        right_media = json.loads(cache_file.read())
+else:
+    right_media = wp_get_paged(right, "/media")
+    with open("right_media.json", "w") as cache_file:
+        cache_file.write(json.dumps(right_media))
+
+#for left_item in left_media:
+#    right_item = order_removal_stale_file(left_item['source_url'])
+
+left_to_right_media_map = {}
+for left_item in left_media:
+    right_item = find_by_slug(left_item['slug'])
+    if right_item is None:
+        to_upload = prepare_item_for_upload(left_item, left, right)
+        filename = re.sub(r".*/([^/]*)", '\\1', to_upload['source_url'])
+        filecontents = requests.get(to_upload['source_url'], headers = { 'User-Agent': 'curl/7.86.0' }, stream=True).raw
+        try:
+            uploaded_file = wp_post_file(right, "/media", filecontents, filename)
+            if 'id' not in uploaded_file:
+                continue
+            to_upload['id'] = uploaded_file['id']
+            uploaded = wp_post_json(right, "/media/%s" % (to_upload['id'],), to_upload )
+            if 'id' not in uploaded:
+                continue
+            left_to_right_media_map[left_item['id']] = uploaded['id']
+            print("%d -> %s" % (left_item['id'], uploaded['id']))
+        except requests.exceptions.JSONDecodeError:
+            pass
+    else:
+        if 'toolset-meta' not in right_item or 'campos-de-migracao' not in right_item['toolset-meta'] or 'old_id' not in right_item['toolset-meta']['campos-de-migracao'] or not right_item['toolset-meta']['campos-de-migracao']['old_id']:
+            pprint(requests.post("%s/wp-json/wp/v2/media/%d" % (right['url'], right_item['id']), 
+                headers = {
+                    'Authorization': 'Basic ' + base64.b64encode((right['username'] + ':' + right['password']).encode()).decode('utf-8'),
+                    'Accept': 'application/json',
+                    'User-Agent': 'curl/7.86.0'
+                },
+                data={ 'old_id': left_item['id'] } ))
+        print("%d -> %s" % (left_item['id'], right_item['id']))
+
+with open("left_to_right_media_map.json", "w") as cache_file:
+    cache_file.write(json.dumps(left_to_right_media_map))

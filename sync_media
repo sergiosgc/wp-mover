@@ -122,7 +122,7 @@ for left_item in left_media:
             if 'id' not in uploaded:
                 continue
             left_to_right_media_map[left_item['id']] = uploaded['id']
-            print("%d -> %s" % (left_item['id'], uploaded['id']))
+            print("Uploaded: %d -> %s" % (left_item['id'], uploaded['id']))
         except requests.exceptions.JSONDecodeError:
             pass
     else:
@@ -134,7 +134,8 @@ for left_item in left_media:
                     'User-Agent': 'curl/7.86.0'
                 },
                 data={ 'old_id': left_item['id'] } ))
-        print("%d -> %s" % (left_item['id'], right_item['id']))
+        left_to_right_media_map[left_item['id']] = right_item['id']
+        print("Existing: %d -> %s" % (left_item['id'], right_item['id']))
 
 with open("left_to_right_media_map.json", "w") as cache_file:
     cache_file.write(json.dumps(left_to_right_media_map))

@@ -1,15 +1,13 @@
-Criar no Toolset o grupo "Campos de migração" com o campo old_id (slugs campos-de-migracao e old_id) no right
-
-Instalar o WP Code e criar os snippets nas pastas snippets.left e snippets.right
-
-1. Criar utilizadores no right, e criar o mapa left_to_right_user_map (eventualmente automatizar isto)
-2. Criar e traduzir categorias. Criar o wpml_category_map.json que mapeia, por língua, categorias na língua principal com categorias nas traduções (eventualmente automatizar isto). Olhar para a tabela wp_terms para saber os IDs
-3. Criar chaves de API (Utilizadores > Perfil > Senhas de aplicação) nos dois sites, e preencher o credentials.json. É um dicionário, com "left" e "right", cada um deles com "url", "username" e "password". A password é a API key.
-4. sync_media. Produz o left_to_right_media_map.json
-5. TODO Integrar o sync_translations no sync_posts (vai a cada tradução de cada post migrado e migra o post de tradução, depois linka o post com a tradução -- POST para /wp-json/link_translation/post?left=left_id&right=right_id&lang=language)
-6. TODO Integrar o sync_featured_image no sync_posts (é simples; basta passar a propriedade featured_media pelo left_to_right_media_map)
-7. sync_posts para todos os tipos de posts (TODO no primeiro sync, se calhar mapear por slugs primeiro para não duplicar posts já migrados de outra forma, como está feito no sync_media)
+1. Nos dois, ir a Toolset | Settings | Custom Content e ligar a REST API
+2. No right, criar no Toolset o grupo "Campos de migração" com o campo old_id (slugs campos-de-migracao e old_id)
+3. Instalar o plugin Code snippets e criar os snippets nas pastas snippets.left e snippets.right
+4. Criar utilizadores no right, e criar o mapa left_to_right_user_map (eventualmente automatizar isto)
+5. Criar e traduzir categorias. Criar o wpml_category_map.json que mapeia, por língua, categorias na língua principal com categorias nas traduções (eventualmente automatizar isto). Olhar para a tabela wp_terms para saber os IDs
+6. Criar chaves de API (Utilizadores > Perfil > Senhas de aplicação) nos dois sites, e preencher o credentials.json. É um dicionário, com "left" e "right", cada um deles com "url", "username" e "password". A password é a API key.
+7. sync_media. Produz o left_to_right_media_map.json
+8. TODO Integrar o sync_translations no sync_posts (vai a cada tradução de cada post migrado e migra o post de tradução, depois linka o post com a tradução -- POST para /wp-json/link_translation/post?left=left_id&right=right_id&lang=language)
+9. TODO Integrar o sync_featured_image no sync_posts (é simples; basta passar a propriedade featured_media pelo left_to_right_media_map)
+10. sync_posts para todos os tipos de posts (TODO no primeiro sync, se calhar mapear por slugs primeiro para não duplicar posts já migrados de outra forma, como está feito no sync_media)
 
 NOTA: O sync_posts está a ir buscar o post content já processado ao frontend. Isto só é necessário se for para trocar de page builder (Divi->Elementor por exemplo). Retirar esse código se o page builder for o mesmo ou não existir no left
-TODO: Passar as credenciais para um ficheiro JSON
 TODO: Passar código comum para um módulo

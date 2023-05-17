@@ -95,7 +95,7 @@ else:
     with open("left_media.json", "w") as cache_file:
         cache_file.write(json.dumps(left_media))
 
-if False and os.path.isfile("right_media.json"):
+if os.path.isfile("right_media.json"):
     with open("right_media.json", "r") as cache_file:
         right_media = json.loads(cache_file.read())
 else:

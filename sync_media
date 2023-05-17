@@ -59,14 +59,15 @@ def wp_get_paged(wp, url):
     return result
 
 def prepare_item_for_upload(item, left_wp, right_wp):
-    item['old_id'] = item['id']
-    del item['id']
-    del item['post']
-    if item['author'] in left_to_right_user_map:
-        item['author'] = left_to_right_user_map[item['author']]
-    if item['status'] == 'inherit':
-        item['status'] = 'publish'
-    return item
+    result = dict(item)
+    result['old_id'] = result['id']
+    del result['id']
+    del result['post']
+    if result['author'] in left_to_right_user_map:
+        result['author'] = left_to_right_user_map[result['author']]
+    if result['status'] == 'inherit':
+        result['status'] = 'publish'
+    return result
 
 def order_removal_stale_file(url):
     url = url.replace(left['url'], right['url'], 1)

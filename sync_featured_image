@@ -15,6 +15,9 @@ with open("credentials.json", "r") as f:
     right = credentials['right']
     del credentials
 
+with open("left_to_right_user_map.json", "r") as f:
+    left_to_right_user_map = { int(k): v for k,v in json.loads(f.read()).items() }
+
 def wp_get(wp, url):
     headers = {
         'Authorization': 'Basic ' + base64.b64encode((wp['username'] + ':' + wp['password']).encode()).decode('utf-8'),
@@ -89,21 +92,6 @@ if len(sys.argv) < 2:
     sys.stderr.write("Usage: sync_featured_image <post_type>")
     sys.exit(1)
 post_type = sys.argv[1]
-
-left_to_right_user_map = {
-    727: 5,
-    1421: 6,
-    740: 7,
-    1455: 8,
-    1459: 9,
-    1396: 10,
-    835: 11
-}
-left_to_right_category_map = {
-    12: 15,
-    9: 14,
-    8: 13
-}
 
 with open("left_to_right_media_map.json", "r") as cache_file:
     left_to_right_media_map = json.loads(cache_file.read())

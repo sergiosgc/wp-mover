@@ -117,22 +117,12 @@ for left_item in left_media:
             if 'id' not in uploaded_file:
                 continue
             to_upload['id'] = uploaded_file['id']
-            uploaded = wp_post_json(right, "/media/%s" % (to_upload['id'],), to_upload )
-            if 'id' not in uploaded:
-                continue
-            left_to_right_media_map[left_item['id']] = uploaded['id']
-            print("Uploaded: %d -> %s" % (left_item['id'], uploaded['id']))
+            wp_post_json(right, "/media/%s" % (to_upload['id'],), to_upload )
+            left_to_right_media_map[left_item['id']] = uploaded_file['id']
+            print("Uploaded: %d -> %s" % (left_item['id'], uploaded_file['id']))
         except requests.exceptions.JSONDecodeError:
             pass
     else:
-        if 'toolset-meta' not in right_item or 'campos-de-migracao' not in right_item['toolset-meta'] or 'old_id' not in right_item['toolset-meta']['campos-de-migracao'] or not right_item['toolset-meta']['campos-de-migracao']['old_id']:
-            pprint(requests.post("%s/wp-json/wp/v2/media/%d" % (right['url'], right_item['id']), 
-                headers = {
-                    'Authorization': 'Basic ' + base64.b64encode((right['username'] + ':' + right['password']).encode()).decode('utf-8'),
-                    'Accept': 'application/json',
-                    'User-Agent': 'curl/7.86.0'
-                },
-                data={ 'old_id': left_item['id'] } ))
         left_to_right_media_map[left_item['id']] = right_item['id']
         print("Existing: %d -> %s" % (left_item['id'], right_item['id']))
 

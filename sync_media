@@ -7,7 +7,8 @@ import os.path
 import re
 import sys
 import mimetypes
-import locale
+
+enable_cache = True
 
 with open("credentials.json", "r") as f:
     credentials = json.loads(f.read())
@@ -17,7 +18,6 @@ with open("credentials.json", "r") as f:
 
 with open("left_to_right_user_map.json", "r") as f:
     left_to_right_user_map = { int(k): v for k,v in json.loads(f.read()).items() }
-
 
 def wp_get(wp, url):
     headers = {
@@ -87,24 +87,23 @@ def find_by_slug(slug):
             return right_item
     return None
 
-if os.path.isfile("left_media.json"):
+if enable_cache and os.path.isfile("left_media.json"):
     with open("left_media.json", "r") as cache_file:
         left_media = json.loads(cache_file.read())
 else:
     left_media = wp_get_paged(left, "/media")
-    with open("left_media.json", "w") as cache_file:
-        cache_file.write(json.dumps(left_media))
+    if enable_cache:
+        with open("left_media.json", "w") as cache_file:
+            cache_file.write(json.dumps(left_media))
 
-if os.path.isfile("right_media.json"):
+if enable_cache and os.path.isfile("right_media.json"):
     with open("right_media.json", "r") as cache_file:
         right_media = json.loads(cache_file.read())
 else:
     right_media = wp_get_paged(right, "/media")
-    with open("right_media.json", "w") as cache_file:
-        cache_file.write(json.dumps(right_media))
-
-#for left_item in left_media:
-#    right_item = order_removal_stale_file(left_item['source_url'])
+    if enable_cache:
+        with open("right_media.json", "w") as cache_file:
+            cache_file.write(json.dumps(right_media))
 
 left_to_right_media_map = {}
 for left_item in left_media:

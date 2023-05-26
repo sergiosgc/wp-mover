@@ -6,3 +6,6 @@ right_posts.json
 wpml_category_map.json
 credentials.json
 left_to_right_user_map.json
+left_categories.json
+right_categories.json
+left_to_right_category_map.json

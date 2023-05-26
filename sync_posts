@@ -4,13 +4,11 @@ import json
 import base64
 from pprint import pprint
 import os.path
-import re
 import sys
 import mimetypes
-import locale
 
 
-enable_cache = False
+enable_cache = True
 
 with open("credentials.json", "r") as f:
     credentials = json.loads(f.read())
@@ -154,8 +152,8 @@ def generate_taxonomy_category_map(left, right, taxonomy):
     return result
 
 def generate_category_map(left, right, post_type):
-    left_post_taxonomies = wp_get(left, "/types/%s" % (post_type,))['taxonomies']
-    right_post_taxonomies = wp_get(left, "/types/%s" % (post_type,))['taxonomies']
+    left_post_taxonomies = [ "categories" if tax == "category" else tax for tax in wp_get(left, "/types/%s" % ("post" if post_type == "posts" else post_type,))['taxonomies'] ]
+    right_post_taxonomies = [ "categories" if tax == "category" else tax for tax in wp_get(left, "/types/%s" % ("post" if post_type == "posts" else post_type,))['taxonomies'] ]
     if left_post_taxonomies != right_post_taxonomies:
         raise Exception("Post taxonomies are different between left and right")
     return { taxonomy: generate_taxonomy_category_map(left, right, taxonomy) for taxonomy in left_post_taxonomies }

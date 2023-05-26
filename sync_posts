@@ -210,22 +210,20 @@ for left_item in left_posts:
             break
     if found:
         continue
-    if not found:
-        to_upload = prepare_item_for_upload(left_item, left, right)
-        right_item = wp_post_json(right, "/%s" % (post_type,), to_upload)
-        if 'id' not in right_item:
-            pprint(right_item)
-            raise Exception("Failed to upload post")
-        else:
-            print("Created: {} -> {}".format(to_upload['old_id'], right_item['id']))
-        for language,left_translation_id in left_item['translations'].items():
-            left_translation = wp_get(left, "/%s/%d" % (post_type, left_translation_id))
-            pprint(left_translation)
-            right_translation = wp_post_json(right, "/%s" % (post_type,), prepare_item_for_upload(left_translation, left, right))
-            requests.post("%s/wp-json/link_translation/post" % (right['url'],), 
-                                data={'left': right_item['id'], 'right': right_translation['id'], 'lang': language},
-                                headers = {
-                                        'Authorization': 'Basic ' + base64.b64encode((right['username'] + ':' + right['password']).encode()).decode('utf-8'),
-                                        'Accept': 'application/json',
-                                        'User-Agent': 'curl/7.86.0'
-                                }).json()
+    to_upload = prepare_item_for_upload(left_item, left, right)
+    right_item = wp_post_json(right, "/%s" % (post_type,), to_upload)
+    if 'id' in right_item:
+        print("Created: {} -> {}".format(to_upload['old_id'], right_item['id']))
+    else:
+        pprint(right_item)
+        raise Exception("Failed to upload post")
+    for language,left_translation_id in left_item['translations'].items():
+        left_translation = wp_get(left, "/%s/%d" % (post_type, left_translation_id))
+        right_translation = wp_post_json(right, "/%s" % (post_type,), prepare_item_for_upload(left_translation, left, right))
+        requests.post("%s/wp-json/link_translation/post" % (right['url'],), 
+                            data={'left': right_item['id'], 'right': right_translation['id'], 'lang': language},
+                            headers = {
+                                    'Authorization': 'Basic ' + base64.b64encode((right['username'] + ':' + right['password']).encode()).decode('utf-8'),
+                                    'Accept': 'application/json',
+                                    'User-Agent': 'curl/7.86.0'
+                            }).json()

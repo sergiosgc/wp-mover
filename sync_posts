@@ -84,13 +84,14 @@ def prepare_item_for_upload(item_to_upload, left_wp, right_wp):
     for taxonomy,category_map in left_to_right_category_map.items():
         if taxonomy in item:
             item[taxonomy] = [ category_map[cat] for cat in item[taxonomy] ]
-    if 'featured_media' in item:
+    if 'featured_media' in item and item['featured_media'] in left_to_right_media_map:
         item['featured_media'] = left_to_right_media_map[item['featured_media']]
-    item = item | {
-        field_name: left_to_right_media_map[field_value['attachment_id']]
-        for _group_name, group_fields in item['toolset-meta'].items() if isinstance(group_fields, dict) for field_name, field_value in group_fields.items() if field_value['type'] == 'image' \
-            and field_value['attachment_id'] != None and field_value['attachment_id'] in left_to_right_media_map
-    }
+    if 'toolset-meta' in item:
+        item = item | {
+            field_name: left_to_right_media_map[field_value['attachment_id']]
+            for _group_name, group_fields in item['toolset-meta'].items() if isinstance(group_fields, dict) for field_name, field_value in group_fields.items() if field_value['type'] == 'image' \
+                and field_value['attachment_id'] != None and field_value['attachment_id'] in left_to_right_media_map
+        }
     if switch_builders:
         text = requests.get(item['link'], headers={ 'User-Agent': 'curl/7.86.0' }).text
         if text.find('class="et_pb_post'):

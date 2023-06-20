@@ -220,7 +220,10 @@ for left_item in left_posts:
         raise Exception("Failed to upload post")
     for language,left_translation_id in left_item['translations'].items():
         left_translation = wp_get(left, "/%s/%d" % (post_type, left_translation_id))
-        right_translation = wp_post_json(right, "/%s" % (post_type,), prepare_item_for_upload(left_translation, left, right))
+        right_translation = prepare_item_for_upload(left_translation, left, right)
+        if 'featured_media' in right_item and right_item['featured_media'] != 0 and ('featured_media' not in right_translation or right_translation['featured_media'] == 0):
+            right_translation['featured_media'] = right_item['featured_media']
+        right_translation = wp_post_json(right, "/%s" % (post_type,), right_translation)
         requests.post("%s/wp-json/link_translation/post" % (right['url'],), 
                             data={'left': right_item['id'], 'right': right_translation['id'], 'lang': language},
                             headers = {
